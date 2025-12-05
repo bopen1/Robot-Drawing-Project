@@ -190,11 +190,13 @@ int fetchFont(int asciiValue, FontChar* fontSet) {
         printf("Error: no font data found\n");  //returns -1 and prints error if trouble opening font data, e.g. from SingleStrokeFont.txt
         return -1; 
     }
-    int ascval, numMoves;   //new variable ascval holds ASCII code read from file, numMoves holds the number of movements required for the pen for obtained character
+    int marker, ascval, numMoves;   //new variable ascval holds ASCII code read from file, numMoves holds the number of movements required for the pen for obtained character
 
-        while (fscanf(fp, "ASCII %d", &ascval) ==1 &&
-            fscanf(fp, "numberMovements = %d", &numMoves) == 1) {
-
+        while (fscanf(fp, "%d %d %d", &marker, &ascval, &numMoves) ==3) {
+            if (marker != 999) {    //identify marker 999 indicating start line of character font data
+                continue;
+            }
+            
         if (ascval == asciiValue) {
             fontSet->asciiValue = ascval;       //ascval and numMoves compared to their expected equivalent from the font data, if correct they are stored
             fontSet->numberMovements = numMoves;
@@ -255,8 +257,6 @@ int newPosition(float* currentX, float* currentY, float x[], float y[], int numb
 
 
 int applyCharacterSpacing(float* currentX, float charSpacing, float wordSpacing, int asciiValue) {
-    wordSpacing = 5.0;
-    charSpacing = 2.0;
     if (currentX == NULL) {
         printf("Error in applyCharacterSpacing: pointer invalid\n");    //if currentX is invalid, return -1 and print error
         return -1;
@@ -271,7 +271,6 @@ int applyCharacterSpacing(float* currentX, float charSpacing, float wordSpacing,
 
 
 int checkWidth(float currentX, int maxWidth) {
-    int maxWidth = 100;
     if (currentX > maxWidth) {
         return -1; //line break required
     }
@@ -313,8 +312,52 @@ int checkWordFit(char textHold[], int startIndex, float currentX, int maxWidth) 
     if ((currentX + requiredWidth) > maxWidth) {
         return -1;  //word does not fit, line break will be applied
     }
-    return 0;   //word fits, success
+    return 0;   //word fits, great success
 }
+
+
+int generateGcode(int asciiValue, float x[], float y[], int penState[], int numberMovements) {
+    if (x == NULL || y == NULL || penState == NULL || numberMovements <= 0) {   
+        printf("Error in generateGcode: inputs invalid\n");     //if parameters are empty or invalid, provide error message and return -1
+        return -1;
+    }
+    printf("Begin character %d\n", asciiValue);     //visual direction for operator use of process insight, beginning
+
+    for (int i = 0; i < numberMovements; i++) {
+        float xi = x[i];
+        float yi = y[i];
+        int pen = penState[i];
+
+        if (pen == 1) {
+            printf("G1 X%.2f Y%.2f; pen down\n", xi, yi);   //set pen down if pen=1
+        } else {
+            printf("G0 X%.2f Y%.2f; pen up\n", xi, yi);     //set pen up if pen=0
+            }
+        }
+        printf("End character %d\n", asciiValue);   //visual direction for operator use of process insight, end
+        return 0;
+    }
+
+
+int penStateOrigin(float* currentX, float* currentY, int* penState) {
+    if (currentX == NULL || currentY == NULL || penState == NULL) { //if parameters are empty or invalid, provide error message and return -1
+        printf( "Error in penStateOrigin: pointers invalid\n");
+        return -1;
+    }
+
+    *penState = 0;
+    *currentX = 0.0;    //set all parameters to 0 for origin point
+    *currentY = 0.0;
+    
+    if (*currentX !=0.0 || *currentY != 0.0) {
+        printf("Error: pen not returned to origin upon process completion (X = %.2f, Y = %.2f)\n", *currentX, *currentY);
+        return -1;  //recommendation to rerun penStateOrigin, or manually reset pen to origin state before beginning again
+    }
+    return 0; //success
+}
+
+
+
 
 
 
