@@ -166,7 +166,6 @@ int WaitForDollar (void)
 }
 
 
-
 int openText(const char* filePath, char* textHold, int maxLength) {
     FILE *fp = fopen(filePath, "r");
     if (fp == NULL) {
@@ -181,8 +180,46 @@ int openText(const char* filePath, char* textHold, int maxLength) {
     textHold[i] = '\0';     //reserves final slot for null terminator '\0' to ensure string is valid
 
     fclose(fp);
-    return 0;   //Success
+    return 0;   //success
 }
+
+
+int fetchFont(int asciiValue, FontChar* fontSet) {
+    FILE *fp = fopen("SingleStrokeFont.txt", "r");
+    if (fp == NULL) {
+        printf("Error: no font data found\n");  //returns -1 and prints error if trouble opening font data, e.g. from SingleStrokeFont.txt
+        return -1; 
+    }
+    int ascval, numMoves;   //new variable ascval holds ASCII code read from file, numMoves holds the number of movements required for the pen for obtained character
+
+        while (fscanf(fp, "ASCII %d", &ascval) ==1 &&
+            fscanf(fp, "numberMovements = %d", &numMoves) == 1) {
+
+        if (ascval == asciiValue) {
+            fontSet->asciiValue = ascval;       //ascval and numMoves compared to their expected equivalent from the font data, if correct they are stored
+            fontSet->numberMovements = numMoves;
+
+            for (int i = 0; i < numMoves; i++) {
+                if (fscanf(fp, "%f %f %d", &fontSet->x[i], &fontSet->y[i], &fontSet->penState[i]) != 3) {   //check all 3 items are read successfully, it not return -1 and print error in reading font data
+                    printf("Error in reading stroke data\n");
+                    fclose(fp);
+                    return -1; 
+                }
+            }
+            fclose(fp);
+            return 0;   //in successful case
+        }   
+        else {
+                for (int i = 0; i < numMoves; i++) {    //if incorrect ASCII value is retrieved we read and discard the values with dummy commands. Loop continues to read next values until correct one is found, or EOF is reached
+                    float dummyX, dummyY;
+                    int dummyPen;
+                    fscanf(fp, "%f %f %d", &dummyX, &dummyY, &dummyPen);
+                }
+            }
+        }             
+        fclose(fp);
+        return -1; //failure, character could not be found 
+    }
 
 
 
