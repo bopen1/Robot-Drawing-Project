@@ -255,6 +255,8 @@ int newPosition(float* currentX, float* currentY, float x[], float y[], int numb
 
 
 int applyCharacterSpacing(float* currentX, float charSpacing, float wordSpacing, int asciiValue) {
+    wordSpacing = 5.0;
+    charSpacing = 2.0;
     if (currentX == NULL) {
         printf("Error in applyCharacterSpacing: pointer invalid\n");    //if currentX is invalid, return -1 and print error
         return -1;
@@ -269,11 +271,51 @@ int applyCharacterSpacing(float* currentX, float charSpacing, float wordSpacing,
 
 
 int checkWidth(float currentX, int maxWidth) {
+    int maxWidth = 100;
     if (currentX > maxWidth) {
         return -1; //line break required
     }
     return 0;   //width OK to continue
 }
+
+
+int applyLineBreak(float* currentX, float* currentY) {
+    if (currentX == NULL || currentY == NULL) {
+        printf("Error in applyLineBreak: pointers invalid\n");
+        return -1;
+    }
+    *currentX = 0.0;
+    *currentY -= 5.0;   //reset coordinate points to 0 in X, -5 lower in Y
+
+    //**MUST CHECK AXIS DIRECTION, IF -5.0 MOVES UP THIS MUST CHANGE SIGNS
+
+    return 0; //success
+}
+
+
+int checkWordFit(char textHold[], int startIndex, float currentX, int maxWidth) {
+    if (textHold == NULL) {
+        printf("Error in checkWordFit: invalid text hold\n");   //If text hold is invalid, return -1 and error
+        return -1;
+    }
+
+    int wordLength = 0;
+    int i = startIndex;
+    while (textHold[i] != '\0' && textHold[i] != ' ') { //count all characters until next space, or string ends
+        wordLength++;   //increment wordLength and startIndex
+        i++;
+    }
+    if (wordLength == 0) {
+        return 0;   //nothing to check
+    }
+
+    float requiredWidth = (wordLength * 2.0) + 5.0;
+    if ((currentX + requiredWidth) > maxWidth) {
+        return -1;  //word does not fit, line break will be applied
+    }
+    return 0;   //word fits, success
+}
+
 
 
 #endif // SM
