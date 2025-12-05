@@ -254,6 +254,27 @@ int newPosition(float* currentX, float* currentY, float x[], float y[], int numb
 }
 
 
+int applyCharacterSpacing(float* currentX, float charSpacing, float wordSpacing, int asciiValue) {
+    if (currentX == NULL) {
+        printf("Error in applyCharacterSpacing: pointer invalid\n");    //if currentX is invalid, return -1 and print error
+        return -1;
+    }
+    if (asciiValue == 32) {
+        *currentX += wordSpacing;   //32 ASCII value = Space, so apply word spacing of 5mm
+    } else{
+        *currentX += charSpacing;   //apply 2mm spacing between characters
+    }
+    return 0; //success
+}
+
+
+int checkWidth(float currentX, int maxWidth) {
+    if (currentX > maxWidth) {
+        return -1; //line break required
+    }
+    return 0;   //width OK to continue
+}
+
 
 #endif // SM
 
