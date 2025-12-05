@@ -166,6 +166,28 @@ int WaitForDollar (void)
 }
 
 
+
+int openText(const char* filePath, char* textHold, int maxLength) {
+    FILE *fp = fopen(filePath, "r");
+    if (fp == NULL) {
+        printf("Error: No text file found: %s\n", filePath);  //Error returned if no file found with expected filepath linked, returns -1
+        return -1;
+    }
+    int i = 0;
+    int c;
+    while ((c = fgetc(fp)) != EOF && i < maxLength - 1){    //returns EOF when reaching end of file, stopping the loop. maxLen - 1 ensures we don't write past the end of the set buffer
+        textHold[i++] = (char)c;
+    }
+    textHold[i] = '\0';     //reserves final slot for null terminator '\0' to ensure string is valid
+
+    fclose(fp);
+    return 0;   //Success
+}
+
+
+
+
+
 #endif // SM
 
 
