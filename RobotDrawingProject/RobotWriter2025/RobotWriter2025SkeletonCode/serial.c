@@ -131,13 +131,13 @@ int WaitForReply (void)
 #else
 
 
-// Open port with checking
+ //Open port with checking
 int CanRS232PortBeOpened ( void )
 {
     return (0);      // Success
 }
 
-// Function to close the COM port
+ //Function to close the COM port
 void CloseRS232Port (void)
 {
     return;
@@ -321,7 +321,10 @@ int generateGcode(int asciiValue, float x[], float y[], int penState[], int numb
         printf("Error in generateGcode: inputs invalid\n");     //if parameters are empty or invalid, provide error message and return -1
         return -1;
     }
-    printf("Begin character %d\n", asciiValue);     //visual direction for operator use of process insight, beginning
+    
+    char buffer[100];
+    sprintf(buffer, "Begin character %d\n", asciiValue);     //visual direction for operator use of process insight, beginning
+    SendCommands(buffer);   //link to SendCommands function in skeleton
 
     for (int i = 0; i < numberMovements; i++) {
         float xi = x[i];
@@ -329,12 +332,15 @@ int generateGcode(int asciiValue, float x[], float y[], int penState[], int numb
         int pen = penState[i];
 
         if (pen == 1) {
-            printf("G1 X%.2f Y%.2f; pen down\n", xi, yi);   //set pen down if pen=1
+            sprintf(buffer, "G1 X%.2f Y%.2f; pen down\n", xi, yi);   //set pen down if pen=1
+            SendCommands(buffer);
         } else {
-            printf("G0 X%.2f Y%.2f; pen up\n", xi, yi);     //set pen up if pen=0
+            sprintf(buffer, "G0 X%.2f Y%.2f; pen up\n", xi, yi);     //set pen up if pen=0
+            SendCommands(buffer);
             }
         }
-        printf("End character %d\n", asciiValue);   //visual direction for operator use of process insight, end
+        sprintf(buffer, "End character %d\n", asciiValue);   //visual direction for operator use of process insight, end
+        SendCommands(buffer);
         return 0;
     }
 
@@ -355,10 +361,6 @@ int penStateOrigin(float* currentX, float* currentY, int* penState) {
     }
     return 0; //success
 }
-
-
-
-
 
 
 #endif // SM
