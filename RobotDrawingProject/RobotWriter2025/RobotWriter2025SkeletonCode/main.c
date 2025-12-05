@@ -15,6 +15,15 @@ int main()
     //char mode[]= {'8','N','1',0};
     char buffer[100];
 
+    //planned function variables
+    char textHold[256];
+    FontChar fontSet;
+    float charSpacing = 2.0;
+    float wordSpacing = 5.0;
+    float cursorX = 0.0, cursorY = 0.0;
+    int penState = 0;
+    int maxWidth = 100;
+
     // If we cannot open the port then give up immediately
     if ( CanRS232PortBeOpened() == -1 )
     {
@@ -43,6 +52,27 @@ int main()
     SendCommands(buffer);
     sprintf (buffer, "S0\n");
     SendCommands(buffer);
+
+    if (openText("test.txt", tetHold, sizeof(textHold)) != 0) {
+        printf("Error: could not open text file\n");
+        CloseRS232Port();
+        return -1;
+    }
+
+    for (int i = 0; textHold[i] != '\0'; i++) {
+        if (checkWordFit(textHold, i, cursorX, maxWidth) != 0) {
+            applyLineBreak(&cursorX, &cursorY);
+        }
+        if (fetchFont((int)textHold[i], &fontSet) ==0) {
+            if (applyScaleFactor(&fontSet, scaleFactor) == 0) {
+                newPosition(&cursorX, &cursorY, fontSet.x, fontSet.y, fontSet.numberMovements);
+                generateGcode((int)textHold[i], fontSet.x, fontSet.y, fontSet.penState, fontSet.numberMovements);
+                applyCharacterSpacing(&cursorX, charSpacing, wordSpacing, (int)textHold[i]);
+            }
+        }
+
+
+    }
 
 
     // These are sample commands to draw out some information - these are the ones you will be generating.
