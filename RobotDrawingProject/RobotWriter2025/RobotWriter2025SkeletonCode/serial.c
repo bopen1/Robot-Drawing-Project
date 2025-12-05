@@ -222,6 +222,36 @@ int fetchFont(int asciiValue, FontChar* fontSet) {
     }
 
 
+int applyScaleFactor(FontChar* fontSet, float scaleFactor) {
+    if (scaleFactor<4.0 || scaleFactor>10.0) {
+        printf("Error: scale factor out of range, please input between 4mm and 10mm\n");    //according to brief scale factor must be between 4mm and 10mm
+        return -1;
+    }
+
+    for (int i = 0; i<fontSet-> numberMovements; i++) {     //multiply values in font array by scale factor to increase to desired font size
+        fontSet->x[i] *= scaleFactor;
+        fontSet->y[i] *= scaleFactor;
+    }
+    return 0;   //success
+}
+
+
+int newPosition(float* currentX, float* currentY, float x[], float y[], int numberMovements) {
+    if (currentX == NULL || currentY == NULL || x == NULL || y == NULL) {    //error catch to highlight exact issue in newPosition function - currentX or currentY, or x or y arrays invalid or empty
+        printf("Error in newPosition: invalid inputs\n");
+        return -1;
+    }
+    if (numberMovements <= 0) {     //error catch to highlight exact issue in newPosition function - number movements input invalid
+        printf("Error in newPosition: number of movements invalid (%d)\n", numberMovements);
+        return -1;
+    }
+    
+    for (int i = 0; i<numberMovements; i++) {   //increment/decrement stroke coordinates based on currentX or currentY
+    x[i] += *currentX;
+    y[i] += *currentY;
+    }
+    return 0; //success
+}
 
 
 
