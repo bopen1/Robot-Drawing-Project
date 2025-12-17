@@ -2,10 +2,10 @@
 #include <stdlib.h>
 
 #include "serial.h"
-//#include "rs232.h"
+#include "rs232.h"
 
 
-//#define Serial_Mode
+#define Serial_Mode
 
 #ifdef Serial_Mode
 
@@ -166,6 +166,31 @@ int WaitForDollar (void)
 }
 
 
+
+
+
+
+
+
+#endif // SM
+
+int penStateOrigin(float* currentX, float* currentY, int* penState) {
+    if (currentX == NULL || currentY == NULL || penState == NULL) { //if parameters are empty or invalid, provide error message and return -1
+        printf( "Error in penStateOrigin: pointers invalid\n");
+        return -1;
+    }
+
+    *penState = 0;
+    *currentX = 0.0;    //set all parameters to 0 for origin point
+    *currentY = 0.0;
+    
+    if (*currentX !=0.0 || *currentY != 0.0) {
+        printf("Error: pen not returned to origin upon process completion (X = %.2f, Y = %.2f)\n", *currentX, *currentY);
+        return -1;  //recommendation to rerun penStateOrigin, or manually reset pen to origin state before beginning again
+    }
+    return 0; //success
+}
+
 int openText(const char* filePath, char* textHold, int maxLength) {
     FILE *fp = fopen(filePath, "r");
     if (fp == NULL) {
@@ -201,8 +226,24 @@ int fetchFont(int asciiValue, FontChar* fontSet) {
             fontSet->asciiValue = ascval;       //ascval and numMoves compared to their expected equivalent from the font data, if correct they are stored
             fontSet->numberMovements = numMoves;
 
+            fontSet->x = malloc(numMoves * sizeof(float));
+            fontSet->y = malloc(numMoves * sizeof(float));
+            fontSet->penState = malloc(numMoves * sizeof(int));     //allocate memory to X, Y and penState
+
+            if (!fontSet->x || !fontSet->y || !fontSet->penState) {     //reports error in case allocation of memory fails
+                free(fontSet->x);
+                free(fontSet->y);
+                free(fontSet->penState);            //free any allocated memory to X, Y and penState to prevent leaks
+                printf("Error: memory allocation failed\n");
+                fclose(fp);
+                return -1;
+            }
+
             for (int i = 0; i < numMoves; i++) {
                 if (fscanf(fp, "%f %f %d", &fontSet->x[i], &fontSet->y[i], &fontSet->penState[i]) != 3) {   //check all 3 items are read successfully, it not return -1 and print error in reading font data
+                    free(fontSet->x);
+                    free(fontSet->y);
+                    free(fontSet->penState);        //free any allocated memory to X, Y and penState to prevent leaks
                     printf("Error in reading stroke data\n");
                     fclose(fp);
                     return -1; 
@@ -230,15 +271,16 @@ int applyScaleFactor(FontChar* fontSet, float scaleFactor) {
         return -1;
     }
 
+    float factor = scaleFactor / 18.0;      //error was here, hadn't added in conversion of /18.0 meaning all values were massively scaled
     for (int i = 0; i<fontSet-> numberMovements; i++) {     //multiply values in font array by scale factor to increase to desired font size
-        fontSet->x[i] *= scaleFactor;
-        fontSet->y[i] *= scaleFactor;
+        fontSet->x[i] *= factor;
+        fontSet->y[i] *= factor;
     }
     return 0;   //success
 }
 
 
-int newPosition(float* currentX, float* currentY, float x[], float y[], int numberMovements) {
+int newPosition(float* currentX, float* currentY, float *x, float *y, int numberMovements) {
     if (currentX == NULL || currentY == NULL || x == NULL || y == NULL) {    //error catch to highlight exact issue in newPosition function - currentX or currentY, or x or y arrays invalid or empty
         printf("Error in newPosition: invalid inputs\n");
         return -1;
@@ -292,7 +334,7 @@ int applyLineBreak(float* currentX, float* currentY) {
 }
 
 
-int checkWordFit(char textHold[], int startIndex, float currentX, int maxWidth) {
+int checkWordFit(const char *textHold, int startIndex, float currentX, int maxWidth) {
     if (textHold == NULL) {
         printf("Error in checkWordFit: invalid text hold\n");   //If text hold is invalid, return -1 and error
         return -1;
@@ -316,55 +358,37 @@ int checkWordFit(char textHold[], int startIndex, float currentX, int maxWidth) 
 }
 
 
-int generateGcode(int asciiValue, float x[], float y[], int penState[], int numberMovements) {
+int generateGcode(int asciiValue, float *x, float *y, int *penState, int numberMovements, int lastPenState) {
     if (x == NULL || y == NULL || penState == NULL || numberMovements <= 0) {   
         printf("Error in generateGcode: inputs invalid\n");     //if parameters are empty or invalid, provide error message and return -1
         return -1;
     }
     
-    char buffer[100];
-    sprintf(buffer, "Begin character %d\n", asciiValue);     //visual direction for operator use of process insight, beginning
-    SendCommands(buffer);   //link to SendCommands function in skeleton
+    char buffer[128];       //buffer to hold formatted G-code strings
+    
+    for (int i = 0; i < numberMovements; i++) {     //loop through all stroke movements for current character
+        float xi = x[i];                            //current X
+        float yi = y[i];                            //current Y
+        int pen = penState[i];                      //current pen position (up/down)
 
-    for (int i = 0; i < numberMovements; i++) {
-        float xi = x[i];
-        float yi = y[i];
-        int pen = penState[i];
+        if (pen != lastPenState) {
+            if (pen == 1) {
+                SendCommands("S1000");      //send command to move pen down whenever pen = 1, and pen does not equal its last pen state
+                printf("Pen moved down\n");
+            } else {
+                SendCommands("S0");         //send command to move pen up whenever pen = 0, and pen does not equal its last pen state
+                printf("Pen moved up\n");
+            }
+            lastPenState = pen;            //update lastpenstate with final pen position in this loop, so next loop same process can occur
+        }
 
-        if (pen == 1) {
-            sprintf(buffer, "G1 X%.2f Y%.2f; pen down\n", xi, yi);   //set pen down if pen=1
+        if (pen == 1) {         //format and send movement commands depending on pen position
+            snprintf(buffer, sizeof(buffer), "G1 X%.2f Y%.2f", xi, yi);     //G1 = pen down, + drawing movement in X and Y
             SendCommands(buffer);
         } else {
-            sprintf(buffer, "G0 X%.2f Y%.2f; pen up\n", xi, yi);     //set pen up if pen=0
+            snprintf(buffer, sizeof(buffer), "G0 X%.2f Y%.2f", xi, yi);    //G0 = pen up, + drawing movement in X and Y
             SendCommands(buffer);
             }
         }
-        sprintf(buffer, "End character %d\n", asciiValue);   //visual direction for operator use of process insight, end
-        SendCommands(buffer);
-        return 0;
+    return 0;
     }
-
-
-int penStateOrigin(float* currentX, float* currentY, int* penState) {
-    if (currentX == NULL || currentY == NULL || penState == NULL) { //if parameters are empty or invalid, provide error message and return -1
-        printf( "Error in penStateOrigin: pointers invalid\n");
-        return -1;
-    }
-
-    *penState = 0;
-    *currentX = 0.0;    //set all parameters to 0 for origin point
-    *currentY = 0.0;
-    
-    if (*currentX !=0.0 || *currentY != 0.0) {
-        printf("Error: pen not returned to origin upon process completion (X = %.2f, Y = %.2f)\n", *currentX, *currentY);
-        return -1;  //recommendation to rerun penStateOrigin, or manually reset pen to origin state before beginning again
-    }
-    return 0; //success
-}
-
-
-#endif // SM
-
-
-
-

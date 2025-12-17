@@ -14,7 +14,7 @@ int main(void)
     char buffer[100];
 
     //planned function variables
-    char textHold[256];
+    char textHold[256];         //preset 256, can be increased with larger file sizes
     FontChar fontSet;
     float charSpacing = 2.0;        //2mm spacing between characters (not spaces)
     float wordSpacing = 5.0;        //5mm spacing between words
@@ -22,6 +22,7 @@ int main(void)
     int penState = 0;
     int maxWidth = 100; //width of writing space 100mm
     float scaleFactor;
+    int lastPenState = 0;
 
      //If we cannot open the port then give up immediately
     if ( CanRS232PortBeOpened() == -1 )
@@ -71,12 +72,16 @@ int main(void)
         if (fetchFont((int)textHold[i], &fontSet) ==0) {                //fetchFont function called
             if (applyScaleFactor(&fontSet, scaleFactor) == 0) {         //applyScaleFactor function dependent on the user input scaleFactor
                 newPosition(&cursorX, &cursorY, fontSet.x, fontSet.y, fontSet.numberMovements);     //newPosition function called to output required position based on input values from SingleStrokeFont and scaleFactor
-                generateGcode((int)textHold[i], fontSet.x, fontSet.y, fontSet.penState, fontSet.numberMovements);   //G code generated to be received by Arduino
+                generateGcode((int)textHold[i], fontSet.x, fontSet.y, fontSet.penState, fontSet.numberMovements, lastPenState);   //G code generated to be received by Arduino
                 applyCharacterSpacing(&cursorX, charSpacing, wordSpacing, (int)textHold[i]);        //spacing applied after each character, 2mm between characters and 5mm if space (ASCII = 32) detected
             }
+            free(fontSet.x);
+            free(fontSet.y);
+            free(fontSet.penState);
         }
     }
     penStateOrigin(&cursorX, &cursorY, &penState);
+    SendCommands("S0");      //finish in pen-up state
     // Before we exit the program we need to close the COM port
     CloseRS232Port();
     printf("Com port now closed\n");
@@ -88,7 +93,7 @@ int main(void)
 // as the dummy 'WaitForReply' has a getch() within the function.
 void SendCommands (char *buffer )
 {
-     printf ("Buffer to send: %s", buffer); // For diagnostic purposes only, normally comment out
+    //printf ("Buffer to send: %s", buffer); // For diagnostic purposes only, normally comment out
     PrintBuffer (&buffer[0]);
     WaitForReply();
     Sleep(100); // Can omit this when using the writing robot but has minimal effect
