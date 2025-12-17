@@ -80,6 +80,7 @@ int main(void)
             free(fontSet.penState);
         }
     }
+    SendCommands("G0 X0 Y0");   //return to origin
     penStateOrigin(&cursorX, &cursorY, &penState);
     SendCommands("S0");      //finish in pen-up state
     // Before we exit the program we need to close the COM port
